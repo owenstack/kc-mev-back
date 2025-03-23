@@ -7,9 +7,18 @@
 	"name": "kc-mev-back",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-03-13",
+	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
 		"enabled": true
-	}
+	},
+	"d1_databases": [
+		{
+			"binding": "DATABASE",
+			"database_name": "start-db",
+			"database_id": "fa5c8276-511b-4e83-b9c6-43edaee5a092"
+		}
+	]
+
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
