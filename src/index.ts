@@ -4,8 +4,16 @@ import { auth } from "../services/auth";
 import { cors } from "hono/cors";
 import { env } from "cloudflare:workers";
 import { getSimulatedData } from "../services/axis-gen";
-import { getAuthenticatedUser, getUserPlan } from "../services/helpers";
-import { createTransaction } from "../services/transactions";
+import {
+	getAuthenticatedUser,
+	getUserPlan,
+	getUsers,
+} from "../services/helpers";
+import {
+	createTransaction,
+	getTransactions,
+	getUserTransactions,
+} from "../services/transactions";
 import {
 	purchaseBooster,
 	getActiveBoostersForUser,
@@ -44,6 +52,35 @@ app.use("/api/get-plan", async (c) => {
 	return c.json(plan);
 });
 
+app.get("/api/admin/users", async (c) => {
+	try {
+		const users = await getUsers(c);
+		return c.json(users);
+	} catch (error) {
+		console.error("Error fetching users:", error);
+		return c.json(
+			{
+				error: error instanceof Error ? error.message : "Internal server error",
+			},
+			401,
+		);
+	}
+});
+
+app.get("/api/admin/transactions", async (c) => {
+	try {
+		const transactions = await getTransactions(c);
+		return c.json(transactions);
+	} catch (error) {
+		return c.json(
+			{
+				error: error instanceof Error ? error.message : "Internal server error",
+			},
+			401,
+		);
+	}
+});
+
 app.get("/api/bot-data", async (c) => {
 	try {
 		const type = c.req.query("type") as "random" | "mev" | "scalper";
@@ -62,12 +99,26 @@ app.get("/api/bot-data", async (c) => {
 	}
 });
 
-app.post("/api/transactions", async (c) => {
+app.post("/api/transactions/create", async (c) => {
 	try {
 		await createTransaction(c);
 		return c.json({ success: true }, 201);
 	} catch (error) {
 		console.error("Error creating transaction:", error);
+		return c.json(
+			{
+				error: error instanceof Error ? error.message : "Internal server error",
+			},
+			401,
+		);
+	}
+});
+
+app.get("/api/transactions/get", async (c) => {
+	try {
+		const transactions = await getUserTransactions(c);
+		return c.json(transactions);
+	} catch (error) {
 		return c.json(
 			{
 				error: error instanceof Error ? error.message : "Internal server error",

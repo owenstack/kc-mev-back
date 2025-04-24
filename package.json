@@ -15,8 +15,7 @@
 		"drizzle-orm": "^0.40.0",
 		"hono": "^4.7.4",
 		"nanoid": "^5.1.5",
-		"telegraf": "^4.16.3",
-		"viem": "^2.23.15"
+		"telegraf": "^4.16.3"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
