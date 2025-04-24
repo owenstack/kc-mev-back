@@ -11,9 +11,12 @@
 	},
 	"dependencies": {
 		"better-auth": "^1.2.4",
+		"better-sqlite3": "^11.9.1",
 		"drizzle-orm": "^0.40.0",
 		"hono": "^4.7.4",
-		"telegraf": "^4.16.3"
+		"nanoid": "^5.1.5",
+		"telegraf": "^4.16.3",
+		"viem": "^2.23.15"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",

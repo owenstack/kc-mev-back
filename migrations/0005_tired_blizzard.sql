@@ -1,0 +1,1 @@
+ALTER TABLE `user` ADD `walletKitConnected` integer DEFAULT false;

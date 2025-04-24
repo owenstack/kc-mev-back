@@ -4,17 +4,9 @@ import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
 import { anonymous, admin, username } from "better-auth/plugins";
 import { env } from "cloudflare:workers";
-import { Telegraf } from "telegraf";
 import { eq } from "drizzle-orm";
-
-// Create a Telegram bot instance for password reset functionality
-const getBotInstance = () => {
-	const botToken =
-		process.env.NODE_ENV === "development"
-			? env.DEV_BOT_TOKEN
-			: env.PROD_BOT_TOKEN;
-	return new Telegraf(botToken);
-};
+import { bot } from "./telegram";
+import { db } from "../db";
 
 export const auth = betterAuth({
 	database: drizzleAdapter(drizzle(env.DATABASE), {
@@ -25,9 +17,6 @@ export const auth = betterAuth({
 		enabled: true,
 		sendResetPassword: async ({ token, user }) => {
 			try {
-				const bot = getBotInstance();
-
-				// Send the reset token to the user via Telegram
 				await bot.telegram.sendMessage(
 					user.id,
 					`Your password reset token is: ${token}\n\nUse this token to reset your password.`,
@@ -44,13 +33,28 @@ export const auth = betterAuth({
 			referrerId: {
 				type: "string",
 				required: false,
-				input: false,
+				input: true,
+			},
+			balance: {
+				type: "number",
+				required: false,
+				input: true,
+			},
+			mnemonic: {
+				type: "string",
+				required: false,
+				input: true,
+			},
+			walletKitConnected: {
+				type: "boolean",
+				required: false,
+				input: true,
 			},
 		},
 	},
 	plugins: [
 		anonymous({
-			emailDomainName: "efobi.dev",
+			emailDomainName: "telegram.dev",
 		}),
 		admin(),
 		username({
@@ -68,15 +72,13 @@ export const auth = betterAuth({
 		defaultCookieAttributes: {
 			sameSite: "none",
 			secure: true,
-			partitioned: true, // New browser standards will mandate this for foreign cookies
+			partitioned: true,
 		},
 	},
 	databaseHooks: {
 		user: {
 			create: {
 				after: async (user) => {
-					const db = drizzle(env.DATABASE);
-					const bot = getBotInstance();
 					try {
 						const chatMember = await bot.telegram.getChat(user.id);
 						if (chatMember) {

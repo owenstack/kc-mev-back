@@ -1,23 +1,23 @@
 import { Telegraf, Markup, session } from "telegraf";
 import type { Context } from "hono";
-import { drizzle } from "drizzle-orm/d1";
 import { user, type User, verification } from "../db/schema";
-import { sql, eq, and } from "drizzle-orm";
-import { auth } from "../utils/auth";
+import { eq } from "drizzle-orm";
+import { auth } from "./auth";
 import { env } from "cloudflare:workers";
+import { db } from "../db";
+
+const botToken =
+	process.env.NODE_ENV === "development"
+		? env.DEV_BOT_TOKEN
+		: env.PROD_BOT_TOKEN;
+const frontendUrl =
+	process.env.NODE_ENV === "development"
+		? env.DEV_FRONTEND_URL
+		: env.PROD_FRONTEND_URL;
+
+export const bot = new Telegraf(botToken);
 
 export function createBotHandler() {
-	const db = drizzle(env.DATABASE);
-	const botToken =
-		process.env.NODE_ENV === "development"
-			? env.DEV_BOT_TOKEN
-			: env.PROD_BOT_TOKEN;
-	const frontendUrl =
-		process.env.NODE_ENV === "development"
-			? env.DEV_FRONTEND_URL
-			: env.PROD_FRONTEND_URL;
-
-	const bot = new Telegraf(botToken);
 	bot.use(session());
 
 	bot.start(async (ctx) => {
@@ -96,7 +96,7 @@ export function createBotHandler() {
 	bot.command("verify-token", async (ctx) => {
 		const args = ctx.message.text.split(" ");
 		if (args.length < 2) {
-			return ctx.reply("Please provide your token: /verifytoken YOUR_TOKEN");
+			return ctx.reply("Please provide your token: /verify-token YOUR_TOKEN");
 		}
 
 		const token = args[1];
