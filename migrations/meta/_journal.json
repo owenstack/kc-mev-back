@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1742295891502,
-      "tag": "0000_yellow_iron_fist",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1742588055430,
-      "tag": "0001_gray_wolf_cub",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1742990852724,
-      "tag": "0002_secret_mother_askani",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1745283579545,
-      "tag": "0003_spotty_sharon_carter",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1745283615174,
-      "tag": "0004_big_cannonball",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1745408541367,
-      "tag": "0005_tired_blizzard",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1745457207614,
-      "tag": "0006_many_nova",
+      "when": 1745932412161,
+      "tag": "0000_tiny_earthquake",
       "breakpoints": true
     }
   ]

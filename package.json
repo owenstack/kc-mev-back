@@ -4,13 +4,16 @@
 		"dev": "wrangler dev",
 		"deploy": "wrangler deploy --minify",
 		"typegen": "wrangler types --env-interface Env",
+		"format": "biome check --write",
 		"db:generate": "drizzle-kit generate",
 		"db:studio": "drizzle-kit studio",
-		"db:push": "wrangler d1 migrations apply start-db --local",
-		"db:deploy": "wrangler d1 migrations apply start-db --remote"
+		"db:push": "wrangler d1 migrations apply kc-mev-db --local",
+		"db:deploy": "wrangler d1 migrations apply kc-mev-db --remote"
 	},
 	"dependencies": {
-		"better-auth": "^1.2.4",
+		"@oslojs/crypto": "^1.0.1",
+		"@oslojs/encoding": "^1.1.0",
+		"@telegram-auth/server": "^1.0.4",
 		"better-sqlite3": "^11.9.1",
 		"drizzle-orm": "^0.40.0",
 		"hono": "^4.7.4",

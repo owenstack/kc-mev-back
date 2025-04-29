@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX `user_mnemonic_unique` ON `user` (`mnemonic`);

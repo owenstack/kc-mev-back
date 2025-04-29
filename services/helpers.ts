@@ -1,23 +1,34 @@
-import { auth } from "./auth";
+import { eq, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { db } from "../db";
 import * as schema from "../db/schema";
-import { eq, sql } from "drizzle-orm";
-import type { UserWithRole } from "better-auth/plugins/admin";
+import { type User, user } from "../db/schema";
+import { validateSessionToken } from "./auth";
 
 export async function getAuthenticatedUser(c: Context) {
-	const session = await auth.api.getSession({
-		headers: new Headers(c.req.header()),
-	});
+	const cookies = new Map(
+		c.req
+			.header("Cookie")
+			?.split(";")
+			.map((cookie) => {
+				const [key, value] = cookie.trim().split("=");
+				return [key, value];
+			}) || [],
+	);
 
-	if (!session?.user?.id) {
+	const token = cookies.get("session");
+	if (!token) {
 		throw new Error("Unauthorized: No valid user session");
 	}
 
-	return session.user;
-}
+	const result = await validateSessionToken(token);
+	if (!result.user) {
+		throw new Error("Unauthorized: Invalid or expired session");
+	}
 
-export async function getUserPlan(userId: string) {
+	return result.user;
+}
+export async function getUserPlan(userId: number) {
 	const userSub = await db.query.subscription.findFirst({
 		where: eq(schema.subscription.userId, userId),
 		columns: {
@@ -31,7 +42,7 @@ export async function getUserPlan(userId: string) {
 	return userSub;
 }
 
-export async function updateUserBalance(userId: string, value: number) {
+export async function updateUserBalance(userId: number, value: number) {
 	const currentUser = await db.query.user.findFirst({
 		where: eq(schema.user.id, userId),
 	});
@@ -47,24 +58,16 @@ export async function updateUserBalance(userId: string, value: number) {
 	}
 }
 
-export interface CustomUser extends UserWithRole {
-	referrerId: string | null;
-	balance: number;
-	mnemonic: string | null;
-	walletKitConnected: boolean | null;
-}
-
-export async function getUsers(c: Context): Promise<CustomUser[]> {
+export async function getUsers(c: Context): Promise<User[]> {
 	const user = await getAuthenticatedUser(c);
-	// if (user.role !== "admin") {
-	// 	throw new Error("Unauthorized: Only admins can access this endpoint");
-	// }
+	if (user.role !== "admin") {
+		throw new Error("Unauthorized: Only admins can access this endpoint");
+	}
 	const users = (await db.query.user.findMany({
 		columns: {
 			id: true,
-			email: true,
-			emailVerified: true,
-			name: true,
+			firstName: true,
+			lastName: true,
 			image: true,
 			createdAt: true,
 			updatedAt: true,
@@ -78,7 +81,52 @@ export async function getUsers(c: Context): Promise<CustomUser[]> {
 			banExpires: true,
 		},
 		orderBy: (users, { desc }) => [desc(users.createdAt)],
-	})) as unknown as CustomUser[];
+	})) as User[];
 
 	return users;
+}
+
+export async function updateUserAdmin(
+	c: Context,
+	userId: number,
+	userData: Partial<User>,
+) {
+	try {
+		const adminUser = await getAuthenticatedUser(c);
+		if (adminUser.role !== "admin") {
+			throw new Error("Unauthorized: Only admins can access this endpoint");
+		}
+
+		const updatedUserData = {
+			...userData,
+			updatedAt: new Date(),
+		};
+
+		await db
+			.update(schema.user)
+			.set(updatedUserData)
+			.where(eq(schema.user.id, userId));
+
+		return c.json({ success: true });
+	} catch (error) {
+		return c.text(
+			`Something went wrong. Error: ${(error as Error).message}`,
+			500,
+		);
+	}
+}
+
+export async function deleteUser(c: Context, userId: number) {
+	try {
+		const adminUser = await getAuthenticatedUser(c);
+		if (adminUser.role !== "admin") {
+			throw new Error("Unauthorized: Only admins can access this endpoint");
+		}
+		await db.delete(user).where(eq(user.id, userId));
+	} catch (error) {
+		return c.text(
+			`Something went wrong. Error: ${(error as Error).message}`,
+			500,
+		);
+	}
 }
