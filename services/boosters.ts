@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import type { Context } from "hono";
-import * as schema from "../db/schema";
-import { db } from "../db";
-import { getAuthenticatedUser } from "./helpers";
 import { nanoid } from "nanoid";
+import { db } from "../db";
+import * as schema from "../db/schema";
+import { getAuthenticatedUser } from "./helpers";
 
 export interface Booster {
 	id: string;
@@ -17,7 +17,7 @@ export interface Booster {
 
 export interface ActiveBooster extends Booster {
 	activatedAt: number;
-	userId: string;
+	userId: number;
 }
 
 export const availableBoosters: Booster[] = [
@@ -247,7 +247,7 @@ export async function purchaseBooster(
 	return true;
 }
 export async function getActiveBoosterMultiplier(
-	userId: string,
+	userId: number,
 ): Promise<number> {
 	const now = Date.now();
 	let totalMultiplier = 1;

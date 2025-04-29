@@ -14,8 +14,8 @@
 	"d1_databases": [
 		{
 			"binding": "DATABASE",
-			"database_name": "start-db",
-			"database_id": "fa5c8276-511b-4e83-b9c6-43edaee5a092"
+			"database_name": "kc-mev-db",
+			"database_id": "f1fa4fd3-3703-47bb-a471-e7e80721d828"
 		}
 	]
 
