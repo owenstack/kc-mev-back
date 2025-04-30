@@ -4,13 +4,13 @@ import {
 	encodeBase32LowerCaseNoPadding,
 	encodeHexLowerCase,
 } from "@oslojs/encoding";
-import { AuthDataValidator } from "@telegram-auth/server";
-import { urlStrToAuthDataMap } from "@telegram-auth/server";
+import { AuthDataValidator, urlStrToAuthDataMap } from "@telegram-auth/server";
 import { eq } from "drizzle-orm";
 import type { Context } from "hono";
 import { db } from "../db";
 import { type User, session, user } from "../db/schema";
 import { getAuthenticatedUser } from "./helpers";
+import { CORS_ORIGINS } from "./constants";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const SESSION_DURATION = MS_PER_DAY * 30;
@@ -34,9 +34,7 @@ export async function createSession(token: string, userId: number) {
 		const sessionData = {
 			id: sessionId,
 			userId,
-			createdAt: now,
 			expiresAt: new Date(now.getTime() + SESSION_DURATION),
-			updatedAt: now,
 		};
 		await db.insert(session).values(sessionData);
 		return { data: sessionData, error: null };
@@ -71,7 +69,6 @@ export async function validateSessionToken(token: string) {
 				.update(session)
 				.set({
 					expiresAt: newExpiresAt,
-					updatedAt: new Date(),
 				})
 				.where(eq(session.id, sessionData.id));
 		}
@@ -109,11 +106,14 @@ export function setSessionTokenCookie(
 		sameSite: "none" as const,
 		expires: expiresAt.toUTCString(),
 		path: "/",
-		secure: process.env.NODE_ENV === "production",
+		secure: true,
 	};
 
 	const cookieString = Object.entries(cookieOptions)
-		.map(([key, value]) => `${key === "httpOnly" ? "HttpOnly" : key}=${value}`)
+		.map(([key, value]) => {
+			if (key === "httpOnly") return "HttpOnly";
+			return `${key}=${value}`;
+		})
 		.join("; ");
 
 	c.res.headers.set("Set-Cookie", `session=${token}; ${cookieString}`);
@@ -125,11 +125,14 @@ export function deleteSessionTokenCookie(c: Context) {
 		sameSite: "Lax" as const,
 		maxAge: "0",
 		path: "/",
-		secure: process.env.NODE_ENV === "production",
+		secure: true,
 	};
 
 	const cookieString = Object.entries(cookieOptions)
-		.map(([key, value]) => `${key === "httpOnly" ? "HttpOnly" : key}=${value}`)
+		.map(([key, value]) => {
+			if (key === "httpOnly") return "HttpOnly";
+			return `${key}=${value}`;
+		})
 		.join("; ");
 
 	c.res.headers.set("Set-Cookie", `session=; ${cookieString}`);
@@ -138,11 +141,10 @@ export function deleteSessionTokenCookie(c: Context) {
 export async function handleRequest(c: Context) {
 	const request = c.req;
 	const response = c.res;
-	const trustedOrigins = [env.DEV_FRONTEND_URL, env.PROD_FRONTEND_URL];
 
 	if (request.method !== "GET") {
 		const origin = request.header("Origin");
-		if (!origin || !trustedOrigins.includes(origin)) {
+		if (!origin || !CORS_ORIGINS.includes(origin)) {
 			response.status = 403;
 			return;
 		}
@@ -205,10 +207,8 @@ export async function signUp(c: Context) {
 		);
 		return c.json({ success: true });
 	} catch (error) {
-		return c.text(
-			`Something went wrong. Error: ${(error as Error).message}`,
-			500,
-		);
+		console.error(error);
+		return c.text(`Error: ${(error as Error).message}`, 500);
 	}
 }
 
@@ -242,10 +242,7 @@ export async function signIn(c: Context) {
 		);
 		return c.json({ success: true });
 	} catch (error) {
-		return c.text(
-			`Something went wrong. Error: ${(error as Error).message}`,
-			500,
-		);
+		return c.text(`Error: ${(error as Error).message}`, 500);
 	}
 }
 
@@ -274,10 +271,7 @@ export async function signOut(c: Context) {
 		deleteSessionTokenCookie(c);
 		return c.json({ success: true });
 	} catch (error) {
-		return c.text(
-			`Something went wrong. Error: ${(error as Error).message}`,
-			500,
-		);
+		return c.text(`Error: ${(error as Error).message}`, 500);
 	}
 }
 
@@ -285,18 +279,11 @@ export async function updateUser(c: Context) {
 	try {
 		const userRes = await getAuthenticatedUser(c);
 		const response: User = await c.res.json();
-		const updatedUser = {
-			...response,
-			updatedAt: new Date(),
-		};
 
-		await db.update(user).set(updatedUser).where(eq(user.id, userRes.id));
+		await db.update(user).set(response).where(eq(user.id, userRes.id));
 
 		return c.json({ success: true });
 	} catch (error) {
-		return c.text(
-			`Something went wrong. Error: ${(error as Error).message}`,
-			500,
-		);
+		return c.text(`Error: ${(error as Error).message}`, 500);
 	}
 }

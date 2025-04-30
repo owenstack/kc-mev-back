@@ -4,6 +4,7 @@ import { db } from "../db";
 import * as schema from "../db/schema";
 import { type User, user } from "../db/schema";
 import { validateSessionToken } from "./auth";
+import { nanoid } from "nanoid";
 
 export async function getAuthenticatedUser(c: Context) {
 	const cookies = new Map(
@@ -39,25 +40,48 @@ export async function getUserPlan(userId: number) {
 			status: true,
 		},
 	});
+	if (!userSub) {
+		const newPlan = await db.insert(schema.subscription).values({
+			id: nanoid(15),
+			userId,
+			planType: "free",
+			planDuration: "monthly",
+			startDate: new Date(),
+			endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+			status: "active",
+		});
+		return newPlan as unknown as schema.Subscription;
+	}
 	return userSub;
 }
 
 export async function updateUserBalance(userId: number, value: number) {
 	const currentUser = await db.query.user.findFirst({
-		where: eq(schema.user.id, userId),
+		where: eq(user.id, userId),
+		columns: {
+			balance: true,
+		},
 	});
 
-	if (currentUser) {
-		await db
-			.update(schema.user)
-			.set({
-				balance: currentUser.balance + value,
-				updatedAt: new Date(),
-			})
-			.where(eq(schema.user.id, userId));
+	if (!currentUser) {
+		throw new Error(`User with ID ${userId} not found`);
 	}
-}
 
+	// Use 0 as default if balance is NULL
+	const currentBalance = currentUser.balance ?? 0;
+	const newBalance = currentBalance + value;
+
+	if (newBalance < 0) {
+		throw new Error("Balance cannot be negative");
+	}
+
+	await db
+		.update(user)
+		.set({
+			balance: newBalance,
+		})
+		.where(eq(user.id, userId));
+}
 export async function getUsers(c: Context): Promise<User[]> {
 	const user = await getAuthenticatedUser(c);
 	if (user.role !== "admin") {
@@ -97,22 +121,14 @@ export async function updateUserAdmin(
 			throw new Error("Unauthorized: Only admins can access this endpoint");
 		}
 
-		const updatedUserData = {
-			...userData,
-			updatedAt: new Date(),
-		};
-
 		await db
 			.update(schema.user)
-			.set(updatedUserData)
+			.set(userData)
 			.where(eq(schema.user.id, userId));
 
 		return c.json({ success: true });
 	} catch (error) {
-		return c.text(
-			`Something went wrong. Error: ${(error as Error).message}`,
-			500,
-		);
+		return c.text(`Error: ${(error as Error).message}`, 500);
 	}
 }
 
@@ -124,9 +140,6 @@ export async function deleteUser(c: Context, userId: number) {
 		}
 		await db.delete(user).where(eq(user.id, userId));
 	} catch (error) {
-		return c.text(
-			`Something went wrong. Error: ${(error as Error).message}`,
-			500,
-		);
+		return c.text(`Error: ${(error as Error).message}`, 500);
 	}
 }

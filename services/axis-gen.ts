@@ -61,20 +61,57 @@ async function getTimeBasedMultiplier(userId: number): Promise<number> {
 
 	if (!user) return 1;
 
+	// Handle different possible types of createdAt
+	let createdAtMs: number;
+
+	if (user.createdAt instanceof Date) {
+		// It's a Date object
+		createdAtMs = user.createdAt.getTime();
+	} else if (typeof user.createdAt === "number") {
+		// It's a timestamp (could be seconds or milliseconds)
+		// SQLite timestamps are usually in seconds
+		createdAtMs = user.createdAt * 1000; // Assuming seconds, convert to ms
+
+		// If it's already in milliseconds, this would be way too large
+		// So check if it's reasonable (before 2100)
+		if (createdAtMs > 4102444800000) {
+			// Jan 1, 2100
+			createdAtMs = user.createdAt; // It was already in milliseconds
+		}
+	} else {
+		// Fallback - use current time (no time-based bonus)
+		createdAtMs = Date.now();
+		console.error("Unexpected createdAt format:", user.createdAt);
+	}
+
 	const accountAgeInWeeks =
-		(Date.now() - user.createdAt.getTime()) / (7 * 24 * 60 * 60 * 1000);
-	return Math.min(
-		accountAgeInWeeks * MULTIPLIERS.TIME_GROWTH_RATE,
-		MULTIPLIERS.MAX_TIME_BASED,
+		(Date.now() - createdAtMs) / (7 * 24 * 60 * 60 * 1000);
+
+	// Ensure we get a positive value
+	const timeMultiplier = Math.max(
+		0,
+		Math.min(
+			accountAgeInWeeks * MULTIPLIERS.TIME_GROWTH_RATE,
+			MULTIPLIERS.MAX_TIME_BASED,
+		),
 	);
+
+	return 1 + timeMultiplier; // Base multiplier is 1
 }
 
 async function calculateAdjustedValue(
 	baseValue: number,
 	userId: number,
 ): Promise<number> {
-	const planMultiplier = await getUserPlanMultiplier(userId);
-	const timeMultiplier = await getTimeBasedMultiplier(userId);
+	// Ensure baseValue is a number
+	if (typeof baseValue !== "number" || Number.isNaN(baseValue)) {
+		console.error("Invalid baseValue:", baseValue);
+		return 0; // Default to 0 instead of null
+	}
+
+	const planMultiplier = (await getUserPlanMultiplier(userId)) || 1;
+	const timeMultiplier = (await getTimeBasedMultiplier(userId)) || 1;
+
 	return baseValue * planMultiplier * timeMultiplier;
 }
 

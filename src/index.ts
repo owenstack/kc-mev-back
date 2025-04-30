@@ -27,21 +27,23 @@ import {
 	getTransactions,
 	getUserTransactions,
 } from "../services/transactions";
+import { CORS_ORIGINS, PUBLIC_PATHS } from "../services/constants";
 
 // Define error response helper
 const errorResponse = (error: unknown) => ({
 	error: error instanceof Error ? error.message : "Internal server error",
 });
 
-// Define route constants
-const PUBLIC_PATHS = ["/api/auth/signin", "/api/auth/signup", "/"] as const;
-const CORS_ORIGINS = [env.PROD_FRONTEND_URL, env.DEV_FRONTEND_URL];
-
 const app = new Hono<{ Bindings: Env }>();
 
 // Authentication middleware to handle request validation and user authentication
 app.use("*", async (c, next) => {
 	try {
+		// Allow OPTIONS requests to pass through without authentication
+		if (c.req.method === "OPTIONS") {
+			return next();
+		}
+
 		if (PUBLIC_PATHS.includes(c.req.path as (typeof PUBLIC_PATHS)[number])) {
 			return next();
 		}

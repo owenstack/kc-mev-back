@@ -16,8 +16,6 @@ export async function createTransaction(c: Context): Promise<Transaction> {
 		status: "pending",
 		description: c.req.query("description"),
 		metadata: c.req.query("metadata"),
-		createdAt: new Date(),
-		updatedAt: new Date(),
 	});
 	return response as unknown as Transaction;
 }

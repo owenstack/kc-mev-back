@@ -164,16 +164,16 @@ export async function purchaseBooster(
 			where: eq(schema.user.id, user.id),
 		});
 
-		if (!userBalance || userBalance.balance < booster.price) return false;
+		if (!userBalance || (userBalance.balance ?? 0) < booster.price)
+			return false;
 
 		// Use state.storage.transaction() API
 		await c.env.DATABASE.prepare(`
 			UPDATE user 
-			SET balance = balance - ?, 
-				updatedAt = ? 
+			SET balance = balance - ?,
 			WHERE id = ?
 		`)
-			.bind(booster.price, new Date().toISOString(), user.id)
+			.bind(booster.price, user.id)
 			.run();
 
 		// Calculate expiration for duration boosters
@@ -193,8 +193,6 @@ export async function purchaseBooster(
 				expiresAt,
 				type,
 				multiplier,
-				createdAt,
-				updatedAt
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`)
 			.bind(
@@ -205,8 +203,6 @@ export async function purchaseBooster(
 				expiresAt?.toISOString(),
 				booster.type,
 				booster.multiplier,
-				new Date().toISOString(),
-				new Date().toISOString(),
 			)
 			.run();
 	} else {
@@ -226,8 +222,6 @@ export async function purchaseBooster(
 				expiresAt,
 				type,
 				multiplier,
-				createdAt,
-				updatedAt
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`)
 			.bind(
@@ -238,8 +232,6 @@ export async function purchaseBooster(
 				expiresAt?.toISOString(),
 				booster.type,
 				booster.multiplier,
-				new Date().toISOString(),
-				new Date().toISOString(),
 			)
 			.run();
 	}
