@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
@@ -7,6 +6,8 @@ import {
 	signOut,
 	signUp,
 	updateUser,
+	validateSessionToken,
+	setSessionTokenCookie,
 } from "../services/auth";
 import { getSimulatedData } from "../services/axis-gen";
 import {
@@ -204,4 +205,21 @@ app.get("/api/auth/get-session", async (c) => {
 });
 
 app.post("api/auth/update-user", updateUser);
+
+// Handle session initialization from URL
+app.get("/api/auth/init", async (c) => {
+	const token = c.req.query("session");
+	if (!token) {
+		return c.json({ error: "No session token provided" }, 400);
+	}
+
+	const result = await validateSessionToken(token);
+	if (!result.session || !result.user) {
+		return c.json({ error: "Invalid session token" }, 401);
+	}
+
+	setSessionTokenCookie(c, token, result.session.expiresAt);
+	return c.json({ success: true });
+});
+
 export default app;

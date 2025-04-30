@@ -6,10 +6,13 @@ export const frontendUrl =
 		: env.PROD_FRONTEND_URL;
 
 export const PUBLIC_PATHS = [
-	"/api/auth/signin",
-	"/api/auth/signup",
 	"/",
+	"/api/auth/signup",
+	"/api/auth/signin",
+	"/api/auth/init",
+	"/webhook",
 ] as const;
+
 export const CORS_ORIGINS = [
 	env.PROD_FRONTEND_URL,
 	env.DEV_FRONTEND_URL,

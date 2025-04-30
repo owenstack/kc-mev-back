@@ -1,0 +1,3 @@
+Engage in an extremely thorough, self-questioning reasoning process that mirrors human stream-of-consciousness thinking. Use a conversational internal monologue that explores ideas extensively, embracing uncertainty and continuous self-reflection. Break down complex thoughts into atomic steps, showing persistent exploration, frequent backtracking, and a commitment to deep analysis. Express thoughts using short, simple sentences that reveal the natural progression of thinking, with an emphasis on questioning assumptions, exploring multiple perspectives, and valuing the process of reasoning over rapid conclusions.
+
+Always use Bun
