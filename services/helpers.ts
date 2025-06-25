@@ -1,34 +1,97 @@
-import { eq, sql } from "drizzle-orm";
+import { type InitData, parse, validate } from "@telegram-apps/init-data-node";
+import { eq } from "drizzle-orm";
 import type { Context } from "hono";
+import { nanoid } from "nanoid";
 import { db } from "../db";
 import * as schema from "../db/schema";
 import { type User, user } from "../db/schema";
-import { validateSessionToken } from "./auth";
-import { nanoid } from "nanoid";
 
-export async function getAuthenticatedUser(c: Context) {
-	const cookies = new Map(
-		c.req
-			.header("Cookie")
-			?.split(";")
-			.map((cookie) => {
-				const [key, value] = cookie.trim().split("=");
-				return [key, value];
-			}) || [],
-	);
-
-	const token = cookies.get("session");
-	if (!token) {
-		throw new Error("Unauthorized: No valid user session");
+export async function getAuthenticatedUser(c: Context): Promise<User> {
+	const authHeader = c.req.header("authorization");
+	if (!authHeader) {
+		throw new Error("Unauthorized: No authorization header");
 	}
 
-	const result = await validateSessionToken(token);
-	if (!result.user) {
-		throw new Error("Unauthorized: Invalid or expired session");
+	const [authType, authData = ""] = authHeader.split(" ");
+	if (authType !== "tma") {
+		throw new Error("Unauthorized: Invalid authorization type");
 	}
 
-	return result.user;
+	try {
+		// Access bot token from Cloudflare Workers env
+		const token = c.env?.DEV_BOT_TOKEN || c.env?.PROD_BOT_TOKEN;
+		if (!token) {
+			throw new Error("Bot token not configured");
+		}
+
+		// Validate the Telegram initData
+		validate(authData, token, {
+			expiresIn: 3600, // 1 hour expiry
+		});
+
+		const initData = parse(authData);
+		if (!initData.user) {
+			throw new Error("Unauthorized: No user data found");
+		}
+
+		// Store the init data in the context for later use
+		c.set("initData", initData);
+
+		// Get or create user in our database
+		const dbUser = await getOrCreateUser(initData.user);
+		return dbUser;
+	} catch (e) {
+		throw new Error(
+			`Unauthorized: ${e instanceof Error ? e.message : "Invalid or expired session"}`,
+		);
+	}
 }
+
+async function getOrCreateUser(telegramUser: InitData["user"]): Promise<User> {
+	// Try to find existing user by Telegram ID
+	if (!telegramUser) {
+		throw new Error("Invalid Telegram user data");
+	}
+	const existingUser = await db.query.user.findFirst({
+		where: eq(user.telegramId, telegramUser.id),
+	});
+
+	if (existingUser) {
+		// Update user info in case it changed on Telegram
+		const updatedUser = await db
+			.update(user)
+			.set({
+				firstName: telegramUser.first_name,
+				lastName: telegramUser.last_name || null,
+				username: telegramUser.username || null,
+				image: telegramUser.photo_url || null,
+				updatedAt: new Date(),
+			})
+			.where(eq(user.telegramId, telegramUser.id))
+			.returning();
+
+		return updatedUser[0];
+	}
+
+	// Create new user
+	const newUser = await db
+		.insert(user)
+		.values({
+			telegramId: telegramUser.id,
+			firstName: telegramUser.first_name,
+			lastName: telegramUser.last_name || null,
+			username: telegramUser.username || null,
+			image: telegramUser.photo_url || null,
+			role: "user",
+			balance: 0,
+			createdAt: new Date(),
+			updatedAt: new Date(),
+		})
+		.returning();
+
+	return newUser[0];
+}
+
 export async function getUserPlan(userId: number) {
 	const userSub = await db.query.subscription.findFirst({
 		where: eq(schema.subscription.userId, userId),
@@ -40,17 +103,22 @@ export async function getUserPlan(userId: number) {
 			status: true,
 		},
 	});
+
 	if (!userSub) {
-		const newPlan = await db.insert(schema.subscription).values({
-			id: nanoid(15),
-			userId,
-			planType: "free",
-			planDuration: "monthly",
-			startDate: new Date(),
-			endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-			status: "active",
-		});
-		return newPlan as unknown as schema.Subscription;
+		const newPlan = await db
+			.insert(schema.subscription)
+			.values({
+				id: nanoid(15),
+				userId,
+				planType: "free",
+				planDuration: "monthly",
+				startDate: new Date(),
+				endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+				status: "active",
+			})
+			.returning();
+
+		return newPlan[0];
 	}
 	return userSub;
 }
@@ -82,16 +150,20 @@ export async function updateUserBalance(userId: number, value: number) {
 		})
 		.where(eq(user.id, userId));
 }
+
 export async function getUsers(c: Context): Promise<User[]> {
-	const user = await getAuthenticatedUser(c);
-	if (user.role !== "admin") {
+	const currentUser = await getAuthenticatedUser(c);
+	if (currentUser.role !== "admin") {
 		throw new Error("Unauthorized: Only admins can access this endpoint");
 	}
-	const users = (await db.query.user.findMany({
+
+	const users = await db.query.user.findMany({
 		columns: {
 			id: true,
+			telegramId: true,
 			firstName: true,
 			lastName: true,
+			username: true,
 			image: true,
 			createdAt: true,
 			updatedAt: true,
@@ -105,7 +177,7 @@ export async function getUsers(c: Context): Promise<User[]> {
 			banExpires: true,
 		},
 		orderBy: (users, { desc }) => [desc(users.createdAt)],
-	})) as User[];
+	});
 
 	return users;
 }
@@ -115,31 +187,25 @@ export async function updateUserAdmin(
 	userId: number,
 	userData: Partial<User>,
 ) {
-	try {
-		const adminUser = await getAuthenticatedUser(c);
-		if (adminUser.role !== "admin") {
-			throw new Error("Unauthorized: Only admins can access this endpoint");
-		}
-
-		await db
-			.update(schema.user)
-			.set(userData)
-			.where(eq(schema.user.id, userId));
-
-		return c.json({ success: true });
-	} catch (error) {
-		return c.text(`Error: ${(error as Error).message}`, 500);
+	const adminUser = await getAuthenticatedUser(c);
+	if (adminUser.role !== "admin") {
+		throw new Error("Unauthorized: Only admins can access this endpoint");
 	}
+
+	const updatedUser = await db
+		.update(schema.user)
+		.set(userData)
+		.where(eq(schema.user.id, userId))
+		.returning();
+
+	return updatedUser[0];
 }
 
 export async function deleteUser(c: Context, userId: number) {
-	try {
-		const adminUser = await getAuthenticatedUser(c);
-		if (adminUser.role !== "admin") {
-			throw new Error("Unauthorized: Only admins can access this endpoint");
-		}
-		await db.delete(user).where(eq(user.id, userId));
-	} catch (error) {
-		return c.text(`Error: ${(error as Error).message}`, 500);
+	const adminUser = await getAuthenticatedUser(c);
+	if (adminUser.role !== "admin") {
+		throw new Error("Unauthorized: Only admins can access this endpoint");
 	}
+
+	await db.delete(user).where(eq(user.id, userId));
 }

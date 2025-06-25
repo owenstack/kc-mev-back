@@ -1,22 +1,18 @@
-import { env } from "cloudflare:workers";
 import { sha256 } from "@oslojs/crypto/sha2";
 import {
 	encodeBase32LowerCaseNoPadding,
 	encodeHexLowerCase,
 } from "@oslojs/encoding";
-import { AuthDataValidator, urlStrToAuthDataMap } from "@telegram-auth/server";
 import { eq } from "drizzle-orm";
 import type { Context } from "hono";
 import { db } from "../db";
 import { type User, session, user } from "../db/schema";
-import { getAuthenticatedUser } from "./helpers";
 import { CORS_ORIGINS } from "./constants";
+import { getAuthenticatedUser } from "./helpers";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const SESSION_DURATION = MS_PER_DAY * 30;
 const SESSION_REFRESH_THRESHOLD = MS_PER_DAY * 15;
-
-const validator = new AuthDataValidator({ botToken: env.PROD_BOT_TOKEN });
 
 export function generateSessionToken(): string {
 	const bytes = new Uint8Array(32); // Increased from 20 to 32 bytes for better security
@@ -173,77 +169,6 @@ export async function handleRequest(c: Context) {
 		return;
 	}
 	setSessionTokenCookie(c, token, result.session.expiresAt);
-}
-
-export async function signUp(c: Context) {
-	try {
-		const data = urlStrToAuthDataMap(c.req.url);
-		const tgUser = await validator.validate(data);
-		if (!tgUser) {
-			return c.text("Invalid user data", 400);
-		}
-
-		const userData = {
-			id: tgUser.id,
-			firstName: tgUser.first_name,
-			lastName: tgUser.last_name,
-			image: tgUser.photo_url,
-			role: "user" as const,
-			username: tgUser.username,
-			isPremium: tgUser.is_premium,
-		};
-
-		await db.insert(user).values(userData);
-		const sessionToken = generateSessionToken();
-		const { error } = await createSession(sessionToken, tgUser.id);
-		if (error) {
-			return c.text(error, 500);
-		}
-
-		setSessionTokenCookie(
-			c,
-			sessionToken,
-			new Date(Date.now() + SESSION_DURATION),
-		);
-		return c.json({ success: true });
-	} catch (error) {
-		console.error(error);
-		return c.text(`Error: ${(error as Error).message}`, 500);
-	}
-}
-
-export async function signIn(c: Context) {
-	try {
-		const data = urlStrToAuthDataMap(c.req.url);
-		const tgUser = await validator.validate(data);
-		if (!tgUser) {
-			return c.text("Invalid user data", 400);
-		}
-
-		const result = await db
-			.select()
-			.from(user)
-			.where(eq(user.id, tgUser.id))
-			.execute();
-		if (result.length < 1) {
-			return c.text("User not found", 404);
-		}
-
-		const sessionToken = generateSessionToken();
-		const { error } = await createSession(sessionToken, tgUser.id);
-		if (error) {
-			return c.text(error, 500);
-		}
-
-		setSessionTokenCookie(
-			c,
-			sessionToken,
-			new Date(Date.now() + SESSION_DURATION),
-		);
-		return c.json({ success: true });
-	} catch (error) {
-		return c.text(`Error: ${(error as Error).message}`, 500);
-	}
 }
 
 export async function signOut(c: Context) {

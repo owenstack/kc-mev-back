@@ -48,23 +48,22 @@ CREATE TABLE `transaction` (
 );
 --> statement-breakpoint
 CREATE TABLE `user` (
-	`id` integer PRIMARY KEY NOT NULL,
-	`firstName` text,
-	`lastName` text,
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`telegram_id` integer NOT NULL,
+	`first_name` text NOT NULL,
+	`last_name` text,
+	`username` text,
 	`image` text,
 	`role` text DEFAULT 'user' NOT NULL,
-	`username` text,
-	`isPremium` integer DEFAULT false,
 	`balance` real DEFAULT 0 NOT NULL,
 	`mnemonic` text,
-	`walletKitConnected` integer DEFAULT false,
-	`referrerId` integer,
-	`banned` integer DEFAULT false,
-	`banReason` text,
-	`banExpires` integer,
-	`createdAt` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	`updatedAt` integer DEFAULT (strftime('%s', 'now')) NOT NULL
+	`wallet_kit_connected` integer DEFAULT false,
+	`referrer_id` integer,
+	`banned` integer DEFAULT false NOT NULL,
+	`ban_reason` text,
+	`ban_expires` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `user_username_unique` ON `user` (`username`);--> statement-breakpoint
-CREATE UNIQUE INDEX `user_mnemonic_unique` ON `user` (`mnemonic`);
+CREATE UNIQUE INDEX `user_telegram_id_unique` ON `user` (`telegram_id`);

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "4577b2fd-cf6d-4d86-a7c0-1b042530630c",
+  "id": "43f70240-c7f3-45c8-94a7-b145cfe2ab18",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "booster": {
@@ -350,17 +350,31 @@
           "type": "integer",
           "primaryKey": true,
           "notNull": true,
+          "autoincrement": true
+        },
+        "telegram_id": {
+          "name": "telegram_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
           "autoincrement": false
         },
-        "firstName": {
-          "name": "firstName",
+        "first_name": {
+          "name": "first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_name": {
+          "name": "last_name",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "lastName": {
-          "name": "lastName",
+        "username": {
+          "name": "username",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -381,21 +395,6 @@
           "autoincrement": false,
           "default": "'user'"
         },
-        "username": {
-          "name": "username",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "isPremium": {
-          "name": "isPremium",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": false
-        },
         "balance": {
           "name": "balance",
           "type": "real",
@@ -411,16 +410,16 @@
           "notNull": false,
           "autoincrement": false
         },
-        "walletKitConnected": {
-          "name": "walletKitConnected",
+        "wallet_kit_connected": {
+          "name": "wallet_kit_connected",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
           "default": false
         },
-        "referrerId": {
-          "name": "referrerId",
+        "referrer_id": {
+          "name": "referrer_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -430,53 +429,44 @@
           "name": "banned",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false,
           "default": false
         },
-        "banReason": {
-          "name": "banReason",
+        "ban_reason": {
+          "name": "ban_reason",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "banExpires": {
-          "name": "banExpires",
+        "ban_expires": {
+          "name": "ban_expires",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "createdAt": {
-          "name": "createdAt",
+        "created_at": {
+          "name": "created_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP"
+          "autoincrement": false
         },
-        "updatedAt": {
-          "name": "updatedAt",
+        "updated_at": {
+          "name": "updated_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "(strftime('%s', 'now'))"
+          "autoincrement": false
         }
       },
       "indexes": {
-        "user_username_unique": {
-          "name": "user_username_unique",
+        "user_telegram_id_unique": {
+          "name": "user_telegram_id_unique",
           "columns": [
-            "username"
-          ],
-          "isUnique": true
-        },
-        "user_mnemonic_unique": {
-          "name": "user_mnemonic_unique",
-          "columns": [
-            "mnemonic"
+            "telegram_id"
           ],
           "isUnique": true
         }

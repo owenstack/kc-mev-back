@@ -3,32 +3,27 @@ import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const user = sqliteTable("user", {
-	id: integer("id").primaryKey(),
-	firstName: text("firstName"),
-	lastName: text("lastName"),
-	image: text("image"),
+	id: integer("id").primaryKey({ autoIncrement: true }),
+	telegramId: integer("telegram_id").unique().notNull(), // Telegram user ID
+	firstName: text("first_name").notNull(),
+	lastName: text("last_name"),
+	username: text("username"), // Telegram username (optional)
+	image: text("image"), // Profile photo URL from Telegram
 	role: text("role", { enum: ["user", "admin"] })
-		.notNull()
-		.default("user"),
-	username: text("username").unique(),
-	isPremium: integer("isPremium", { mode: "boolean" }).default(false),
+		.default("user")
+		.notNull(),
 	balance: real("balance").default(0).notNull(),
-	mnemonic: text("mnemonic").unique(),
-	walletKitConnected: integer("walletKitConnected", {
+	mnemonic: text("mnemonic"), // Wallet mnemonic if applicable
+	walletKitConnected: integer("wallet_kit_connected", {
 		mode: "boolean",
 	}).default(false),
-	referrerId: integer("referrerId"),
-	banned: integer("banned", { mode: "boolean" }).default(false),
-	banReason: text("banReason"),
-	banExpires: integer("banExpires", { mode: "timestamp" }),
-	createdAt: integer("createdAt", { mode: "timestamp" })
-		.notNull()
-		.default(sql`CURRENT_TIMESTAMP`),
-	updatedAt: integer("updatedAt", { mode: "timestamp" })
-		.notNull()
-		.default(sql`(strftime('%s', 'now'))`),
+	referrerId: integer("referrer_id"),
+	banned: integer("banned", { mode: "boolean" }).default(false).notNull(),
+	banReason: text("ban_reason"),
+	banExpires: integer("ban_expires", { mode: "timestamp" }),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
-
 export const session = sqliteTable("session", {
 	id: text("id").primaryKey(),
 	userId: integer("userId")

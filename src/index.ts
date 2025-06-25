@@ -1,19 +1,12 @@
-import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import {
-	handleRequest,
-	signIn,
-	signOut,
-	signUp,
-	updateUser,
-} from "../services/auth";
 import { getSimulatedData } from "../services/axis-gen";
 import {
 	getActiveBoostersForUser,
 	getAvailableBoosters,
 	purchaseBooster,
 } from "../services/boosters";
+import { CORS_ORIGINS, PUBLIC_PATHS } from "../services/constants";
 import {
 	deleteUser,
 	getAuthenticatedUser,
@@ -27,7 +20,6 @@ import {
 	getTransactions,
 	getUserTransactions,
 } from "../services/transactions";
-import { CORS_ORIGINS, PUBLIC_PATHS } from "../services/constants";
 
 // Define error response helper
 const errorResponse = (error: unknown) => ({
@@ -36,59 +28,79 @@ const errorResponse = (error: unknown) => ({
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Authentication middleware to handle request validation and user authentication
-app.use("*", async (c, next) => {
-	try {
-		// Allow OPTIONS requests to pass through without authentication
-		if (c.req.method === "OPTIONS") {
-			return next();
-		}
-
-		if (PUBLIC_PATHS.includes(c.req.path as (typeof PUBLIC_PATHS)[number])) {
-			return next();
-		}
-		await handleRequest(c);
-		return next();
-	} catch (error) {
-		return c.json(errorResponse(error), 401);
-	}
-});
-
+// CORS middleware - must come first
 app.use(
 	"*",
 	cors({
 		origin: CORS_ORIGINS,
 		allowHeaders: ["Content-Type", "Authorization"],
-		allowMethods: ["POST", "GET", "OPTIONS"],
+		allowMethods: ["POST", "GET", "OPTIONS", "PUT", "DELETE"],
 		exposeHeaders: ["Content-Length"],
 		maxAge: 600,
 		credentials: true,
 	}),
 );
 
-app.get("/", (c) => c.text("Hello Galaxy MEV!"));
+// Telegram Mini App Authentication middleware
+app.use("*", async (c, next) => {
+	try {
+		// Allow OPTIONS requests to pass through without authentication
+		if (c.req.method === "OPTIONS") {
+			return next();
+		}
+		// Skip authentication for public paths
+		if (PUBLIC_PATHS.includes(c.req.path as (typeof PUBLIC_PATHS)[number])) {
+			return next();
+		}
+		// Authenticate user using Telegram initData
+		await getAuthenticatedUser(c);
+		return next();
+	} catch (error) {
+		return c.json(errorResponse(error), 401);
+	}
+});
 
+// Health check endpoint
+app.get("/", (c) => c.text("Hello Galaxy MEV Telegram Mini App!"));
+
+// Telegram bot webhook endpoint (public)
 app.use("/api/bot", async (c) => {
 	const botHandler = createBotHandler();
 	return botHandler(c);
 });
 
-app.use("/api/get-plan", async (c) => {
-	const user = await getAuthenticatedUser(c);
-	const plan = await getUserPlan(user.id);
-	if (!plan) {
-		return c.json({ error: "No plan found" }, 404);
+// User plan endpoint
+app.get("/api/get-plan", async (c) => {
+	try {
+		const user = await getAuthenticatedUser(c);
+		const plan = await getUserPlan(user.id);
+		if (!plan) {
+			return c.json({ error: "No plan found" }, 404);
+		}
+		return c.json(plan);
+	} catch (error) {
+		return c.json(errorResponse(error), 500);
 	}
-	return c.json(plan);
 });
 
+// Get current user info
+app.get("/api/auth/me", async (c) => {
+	try {
+		const user = await getAuthenticatedUser(c);
+		return c.json({ user });
+	} catch (error) {
+		return c.json(errorResponse(error), 401);
+	}
+});
+
+// Admin endpoints
 app.get("/api/admin/users", async (c) => {
 	try {
 		const users = await getUsers(c);
 		return c.json(users);
 	} catch (error) {
 		console.error("Error fetching users:", error);
-		return c.json(errorResponse(error), 401);
+		return c.json(errorResponse(error), 403);
 	}
 });
 
@@ -99,7 +111,7 @@ app.post("/api/admin/update-user", async (c) => {
 		return c.json(updatedUser);
 	} catch (error) {
 		console.error("Error updating user:", error);
-		return c.json(errorResponse(error), 401);
+		return c.json(errorResponse(error), 403);
 	}
 });
 
@@ -109,8 +121,8 @@ app.post("/api/admin/delete-user", async (c) => {
 		await deleteUser(c, userId);
 		return c.json({ success: true });
 	} catch (error) {
-		console.error("Error updating user:", error);
-		return c.json(errorResponse(error), 401);
+		console.error("Error deleting user:", error);
+		return c.json(errorResponse(error), 403);
 	}
 });
 
@@ -119,10 +131,11 @@ app.get("/api/admin/transactions", async (c) => {
 		const transactions = await getTransactions(c);
 		return c.json(transactions);
 	} catch (error) {
-		return c.json(errorResponse(error), 401);
+		return c.json(errorResponse(error), 403);
 	}
 });
 
+// Bot data endpoint
 app.get("/api/bot-data", async (c) => {
 	try {
 		const type = c.req.query("type") as "random" | "mev" | "scalper";
@@ -132,17 +145,18 @@ app.get("/api/bot-data", async (c) => {
 		return c.json(data);
 	} catch (error) {
 		console.error("Error fetching bot data:", error);
-		return c.json(errorResponse(error), 401);
+		return c.json(errorResponse(error), 500);
 	}
 });
 
+// Transaction endpoints
 app.post("/api/transactions/create", async (c) => {
 	try {
 		await createTransaction(c);
 		return c.json({ success: true }, 201);
 	} catch (error) {
 		console.error("Error creating transaction:", error);
-		return c.json(errorResponse(error), 401);
+		return c.json(errorResponse(error), 500);
 	}
 });
 
@@ -151,16 +165,17 @@ app.get("/api/transactions/get", async (c) => {
 		const transactions = await getUserTransactions(c);
 		return c.json(transactions);
 	} catch (error) {
-		return c.json(errorResponse(error), 401);
+		return c.json(errorResponse(error), 500);
 	}
 });
 
+// Booster endpoints
 app.get("/api/boosters", async (c) => {
 	try {
 		const boosters = await getAvailableBoosters();
 		return c.json(boosters);
 	} catch (error) {
-		return c.json(errorResponse(error), 401);
+		return c.json(errorResponse(error), 500);
 	}
 });
 
@@ -170,7 +185,7 @@ app.get("/api/boosters/active", async (c) => {
 		return c.json(activeBoosters);
 	} catch (error) {
 		console.error("Error fetching active boosters:", error);
-		return c.json(errorResponse(error), 401);
+		return c.json(errorResponse(error), 500);
 	}
 });
 
@@ -186,22 +201,8 @@ app.post("/api/boosters/purchase", async (c) => {
 		return c.json({ success: true }, 201);
 	} catch (error) {
 		console.error("Error purchasing booster:", error);
-		return c.json(errorResponse(error), 401);
+		return c.json(errorResponse(error), 500);
 	}
 });
 
-app.post("/api/auth/signup", signUp);
-app.post("/api/auth/signin", signIn);
-app.get("/api/auth/signout", signOut);
-
-app.get("/api/auth/get-session", async (c) => {
-	try {
-		const user = await getAuthenticatedUser(c);
-		return c.json({ user });
-	} catch (error) {
-		return c.json(errorResponse(error), 401);
-	}
-});
-
-app.post("api/auth/update-user", updateUser);
 export default app;
