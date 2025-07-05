@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { User } from "../db/schema";
 import { getSimulatedData } from "../services/axis-gen";
 import {
 	getActiveBoostersForUser,
@@ -12,6 +13,7 @@ import {
 	getAuthenticatedUser,
 	getUserPlan,
 	getUsers,
+	updateUser,
 	updateUserAdmin,
 } from "../services/helpers";
 import { createBotHandler } from "../services/telegram";
@@ -26,7 +28,7 @@ const errorResponse = (error: unknown) => ({
 	error: error instanceof Error ? error.message : "Internal server error",
 });
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: Env; Variables: { user: User } }>();
 
 // CORS middleware - must come first
 app.use(
@@ -53,7 +55,8 @@ app.use("*", async (c, next) => {
 			return next();
 		}
 		// Authenticate user using Telegram initData
-		await getAuthenticatedUser(c);
+		const user = await getAuthenticatedUser(c);
+		c.set("user", user);
 		return next();
 	} catch (error) {
 		return c.json(errorResponse(error), 401);
@@ -86,10 +89,21 @@ app.get("/api/get-plan", async (c) => {
 // Get current user info
 app.get("/api/auth/me", async (c) => {
 	try {
-		const user = await getAuthenticatedUser(c);
+		const user = c.get("user");
 		return c.json({ user });
 	} catch (error) {
 		return c.json(errorResponse(error), 401);
+	}
+});
+
+app.post("/api/auth/update", async (c) => {
+	try {
+		const data = await c.req.json();
+		// Update user information
+		const updatedUser = await updateUser(c, data);
+		return c.json(updatedUser);
+	} catch (error) {
+		return c.json(errorResponse(error), 500);
 	}
 });
 

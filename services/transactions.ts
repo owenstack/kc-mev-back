@@ -8,16 +8,20 @@ import { getAuthenticatedUser } from "./helpers";
 
 export async function createTransaction(c: Context): Promise<Transaction> {
 	const user = await getAuthenticatedUser(c);
-	const response = await db.insert(schema.transaction).values({
-		id: nanoid(15),
-		userId: user.id,
-		type: c.req.query("type") as "withdrawal" | "deposit" | "transfer",
-		amount: Number.parseFloat(c.req.query("amount") as string),
-		status: "pending",
-		description: c.req.query("description"),
-		metadata: c.req.query("metadata"),
-	});
-	return response as unknown as Transaction;
+	const { type, amount, metadata, description } = await c.req.json();
+	const response = await db
+		.insert(schema.transaction)
+		.values({
+			id: nanoid(15),
+			userId: user.id,
+			type: type as "withdrawal" | "deposit" | "transfer",
+			amount: Number.parseFloat(amount as string),
+			status: "pending",
+			description: description || "",
+			metadata: metadata || "",
+		})
+		.returning();
+	return response[0];
 }
 
 export async function getTransactions(c: Context) {

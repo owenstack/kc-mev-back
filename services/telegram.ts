@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import { Markup, Telegraf, session } from "telegraf";
 import { frontendUrl } from "./constants";
 
-export const bot = new Telegraf(env.PROD_BOT_TOKEN);
+export const bot = new Telegraf(env.BOT_TOKEN);
 
 export function createBotHandler() {
 	bot.use(session());
