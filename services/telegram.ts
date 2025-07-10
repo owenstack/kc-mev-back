@@ -1,9 +1,8 @@
-import { env } from "cloudflare:workers";
 import type { Context } from "hono";
 import { Markup, Telegraf, session } from "telegraf";
-import { frontendUrl } from "./constants";
+import { frontendUrl, token } from "./constants";
 
-export const bot = new Telegraf(env.BOT_TOKEN);
+export const bot = new Telegraf(token);
 
 export function createBotHandler() {
 	bot.use(session());

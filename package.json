@@ -4,24 +4,15 @@
 		"dev": "wrangler dev",
 		"deploy": "wrangler deploy --minify",
 		"typegen": "wrangler types --env-interface Env",
-		"format": "biome check --write",
-		"db:generate": "drizzle-kit generate",
-		"db:studio": "drizzle-kit studio",
-		"db:push": "wrangler d1 migrations apply kc-mev-db --local",
-		"db:deploy": "wrangler d1 migrations apply kc-mev-db --remote"
+		"format": "biome check --write"
 	},
 	"dependencies": {
-		"@telegram-apps/init-data-node": "^2.0.9",
-		"better-sqlite3": "^11.9.1",
-		"drizzle-orm": "^0.40.0",
 		"hono": "^4.7.4",
-		"nanoid": "^5.1.5",
 		"telegraf": "^4.16.3"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
 		"@types/node": "^22.13.10",
-		"drizzle-kit": "^0.30.5",
 		"wrangler": "^4.3.0"
 	}
 }

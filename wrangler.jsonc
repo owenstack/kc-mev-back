@@ -10,14 +10,7 @@
 	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
 		"enabled": true
-	},
-	"d1_databases": [
-		{
-			"binding": "DATABASE",
-			"database_name": "kc-mev-db",
-			"database_id": "055bf134-6c89-451d-ac1e-a8d0b2590c1a"
-		}
-	]
+	}
 
 	/**
 	 * Smart Placement
